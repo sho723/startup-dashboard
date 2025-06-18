@@ -306,4 +306,4 @@ else:
 
 # フッター
 st.markdown("---")
-st.markdown("Made with ❤️ using Streamlit")
+st.markdown("Made with using Streamlit")
