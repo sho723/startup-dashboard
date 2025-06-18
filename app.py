@@ -12,6 +12,93 @@ st.set_page_config(
     layout="wide"
 )
 
+# 関数定義（先頭に移動）
+def calculate_days_since_creation(startup):
+    """作成日からの経過日数を計算"""
+    try:
+        if startup.get('created_at'):
+            created_date = datetime.fromisoformat(startup['created_at'].replace('Z', '+00:00'))
+            return (datetime.now() - created_date).days
+    except:
+        pass
+    return 0
+
+def calculate_avg_days_since_creation(startups_list):
+    """平均経過日数を計算"""
+    if not startups_list:
+        return 0
+    
+    total_days = sum(calculate_days_since_creation(s) for s in startups_list)
+    return round(total_days / len(startups_list), 1)
+
+def display_startup_cards(filtered_startups, all_startups, tab_type):
+    """スタートアップカードを表示する関数"""
+    if not filtered_startups:
+        st.info("条件に一致するスタートアップがありません。")
+        return
+    
+    # グリッドレイアウト
+    cols = st.columns(3)
+    for i, startup in enumerate(filtered_startups):
+        with cols[i % 3]:
+            with st.container():
+                # ステータスに応じた色分け
+                status_colors = {
+                    "初期接触": "🔵",
+                    "商談中": "🟡", 
+                    "保留": "⚫",
+                    "成約": "🟢",
+                    "見送り": "🔴"
+                }
+                
+                # アクティブ案件の場合は経過日数も表示
+                title = f"### {status_colors.get(startup['status'], '⚪')} {startup['company_name']}"
+                if tab_type == "active":
+                    days_passed = calculate_days_since_creation(startup)
+                    title += f" ({days_passed}日経過)"
+                
+                st.markdown(title)
+                
+                # ロゴ表示
+                if startup.get('logo_url'):
+                    try:
+                        st.image(startup['logo_url'], width=100)
+                    except:
+                        st.write("🏢 ロゴ未取得")
+                else:
+                    st.write("🏢 ロゴ未取得")
+                
+                st.write(f"**担当者:** {startup.get('contact_person', 'N/A')}")
+                st.write(f"**メール:** {startup.get('email', 'N/A')}")
+                st.write(f"**ステータス:** {startup['status']}")
+                
+                # 作成日・更新日
+                if startup.get('created_at'):
+                    created_date = datetime.fromisoformat(startup['created_at'].replace('Z', '+00:00'))
+                    st.write(f"**登録日:** {created_date.strftime('%Y-%m-%d')}")
+                
+                if startup.get('notes'):
+                    with st.expander("メモを見る"):
+                        st.write(startup['notes'])
+                
+                # 編集・削除ボタン
+                col_edit, col_delete = st.columns(2)
+                with col_edit:
+                    if st.button(f"編集", key=f"edit_{tab_type}_{i}"):
+                        st.info("編集機能は開発中です")
+                with col_delete:
+                    if st.button(f"削除", key=f"delete_{tab_type}_{i}"):
+                        if st.session_state.get(f"confirm_delete_{tab_type}_{i}"):
+                            all_startups.remove(startup)
+                            save_data(all_startups)
+                            st.rerun()
+                        else:
+                            st.session_state[f"confirm_delete_{tab_type}_{i}"] = True
+                            st.warning("もう一度クリックして削除を確認してください")
+                
+                st.divider()
+
+# メインアプリケーション開始
 st.title("🚀 Startup Contact Dashboard")
 
 # データ読み込み
@@ -24,7 +111,7 @@ with st.sidebar.form("add_startup"):
     company_name = st.text_input("会社名")
     contact_person = st.text_input("担当者名")
     email = st.text_input("メールアドレス")
-    status = st.selectbox("ステータス", ["初期接触", "商談中", "保留", "成約", "見送り"])  # 変更点
+    status = st.selectbox("ステータス", ["初期接触", "商談中", "保留", "成約", "見送り"])
     notes = st.text_area("メモ")
     
     if st.form_submit_button("追加"):
@@ -90,7 +177,7 @@ if startups:
     st.subheader("📊 統計情報")
     col1, col2, col3, col4 = st.columns(4)
     
-    # アクティブ案件の定義を変更（保留を含む）
+    # アクティブ案件の定義（保留を含む）
     active_startups = [s for s in startups if s["status"] in ["初期接触", "商談中", "保留"]]
     success_count = len([s for s in startups if s["status"] == "成約"])
     
@@ -143,7 +230,6 @@ if startups:
                 negotiation_count = len([s for s in active_startups if s["status"] == "商談中"])
                 st.metric("商談中", negotiation_count)
             with col3:
-                # 変更点: 提案済み → 保留
                 hold_count = len([s for s in active_startups if s["status"] == "保留"])
                 st.metric("保留", hold_count)
             with col4:
@@ -153,7 +239,6 @@ if startups:
             # アクティブ案件用フィルター
             col1, col2 = st.columns([1, 1])
             with col1:
-                # 変更点: 提案済み → 保留
                 active_status_filter = st.selectbox("アクティブステータス", 
                                                   ["全て", "初期接触", "商談中", "保留"],
                                                   key="active_status_filter")
@@ -219,92 +304,6 @@ if startups:
 else:
     st.info("まだスタートアップが登録されていません。サイドバーから追加してください。")
 
-# 関数定義
-def display_startup_cards(filtered_startups, all_startups, tab_type):
-    """スタートアップカードを表示する関数"""
-    if not filtered_startups:
-        st.info("条件に一致するスタートアップがありません。")
-        return
-    
-    # グリッドレイアウト
-    cols = st.columns(3)
-    for i, startup in enumerate(filtered_startups):
-        with cols[i % 3]:
-            with st.container():
-                # ステータスに応じた色分け
-                status_colors = {
-                    "初期接触": "🔵",
-                    "商談中": "🟡", 
-                    "保留": "🟠",     
-                    "成約": "🟢",
-                    "見送り": "🔴"
-                }
-                
-                # アクティブ案件の場合は経過日数も表示
-                title = f"### {status_colors.get(startup['status'], '⚪')} {startup['company_name']}"
-                if tab_type == "active":
-                    days_passed = calculate_days_since_creation(startup)
-                    title += f" ({days_passed}日経過)"
-                
-                st.markdown(title)
-                
-                # ロゴ表示
-                if startup.get('logo_url'):
-                    try:
-                        st.image(startup['logo_url'], width=100)
-                    except:
-                        st.write("🏢 ロゴ未取得")
-                else:
-                    st.write("🏢 ロゴ未取得")
-                
-                st.write(f"**担当者:** {startup.get('contact_person', 'N/A')}")
-                st.write(f"**メール:** {startup.get('email', 'N/A')}")
-                st.write(f"**ステータス:** {startup['status']}")
-                
-                # 作成日・更新日
-                if startup.get('created_at'):
-                    created_date = datetime.fromisoformat(startup['created_at'].replace('Z', '+00:00'))
-                    st.write(f"**登録日:** {created_date.strftime('%Y-%m-%d')}")
-                
-                if startup.get('notes'):
-                    with st.expander("メモを見る"):
-                        st.write(startup['notes'])
-                
-                # 編集・削除ボタン
-                col_edit, col_delete = st.columns(2)
-                with col_edit:
-                    if st.button(f"編集", key=f"edit_{tab_type}_{i}"):
-                        st.info("編集機能は開発中です")
-                with col_delete:
-                    if st.button(f"削除", key=f"delete_{tab_type}_{i}"):
-                        if st.session_state.get(f"confirm_delete_{tab_type}_{i}"):
-                            all_startups.remove(startup)
-                            save_data(all_startups)
-                            st.rerun()
-                        else:
-                            st.session_state[f"confirm_delete_{tab_type}_{i}"] = True
-                            st.warning("もう一度クリックして削除を確認してください")
-                
-                st.divider()
-
-def calculate_days_since_creation(startup):
-    """作成日からの経過日数を計算"""
-    try:
-        if startup.get('created_at'):
-            created_date = datetime.fromisoformat(startup['created_at'].replace('Z', '+00:00'))
-            return (datetime.now() - created_date).days
-    except:
-        pass
-    return 0
-
-def calculate_avg_days_since_creation(startups_list):
-    """平均経過日数を計算"""
-    if not startups_list:
-        return 0
-    
-    total_days = sum(calculate_days_since_creation(s) for s in startups_list)
-    return round(total_days / len(startups_list), 1)
-
 # フッター
 st.markdown("---")
-st.markdown("Made with using Streamlit")
+st.markdown("Made with ❤️ using Streamlit")
