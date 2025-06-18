@@ -46,7 +46,7 @@ with st.sidebar.form("add_startup"):
             add_startup(startups, startup_data)
             save_data(startups)
             st.sidebar.success(f"{company_name} を追加しました！")
-            st.experimental_rerun()
+            st.rerun()
 
 # メインエリア - ダッシュボード表示
 if startups:
@@ -126,7 +126,7 @@ if startups:
                     if st.button(f"削除", key=f"delete_{i}"):
                         startups.remove(startup)
                         save_data(startups)
-                        st.experimental_rerun()
+                        st.rerun()
                 
                 st.divider()
 
