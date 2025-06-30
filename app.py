@@ -3,6 +3,7 @@ import pandas as pd
 import json
 from datetime import datetime
 from utils.logo_fetcher import fetch_company_logo
+from utils.url_fetcher import fetch_company_url
 from utils.data_manager import load_data, save_data, add_startup
 
 # ページ設定
@@ -11,6 +12,34 @@ st.set_page_config(
     page_icon="🚀",
     layout="wide"
 )
+
+# 統合ログ管理関数を追加
+def save_activity_log(action, data, additional_info=None):
+    """アクティビティログを保存（追加、編集、削除などすべてのアクション）"""
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "action": action,
+        "data": data
+    }
+    
+    if additional_info:
+        log_entry.update(additional_info)
+    
+    # ログファイルの読み込み（存在しない場合は空リスト）
+    try:
+        with open('data/activity_logs.json', 'r', encoding='utf-8') as f:
+            logs = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        logs = []
+    
+    # 新しいログエントリを追加
+    logs.append(log_entry)
+    
+    # ログファイルに保存
+    import os
+    os.makedirs('data', exist_ok=True)
+    with open('data/activity_logs.json', 'w', encoding='utf-8') as f:
+        json.dump(logs, f, ensure_ascii=False, indent=2)
 
 # 関数定義（先頭に移動）
 def calculate_days_since_creation(startup):
@@ -68,9 +97,10 @@ def display_startup_cards(filtered_startups, all_startups, tab_type):
                 else:
                     st.write("🏢 ロゴ未取得")
                 
-                st.write(f"**HP:** {startup.get('HP', 'N/A')}")
+                st.write(f"**HP:** {startup.get('hp', 'N/A')}")
                 st.write(f"**メール:** {startup.get('email', 'N/A')}")
-                st.write(f"**ステータス:** {startup['status']}")
+                st.write(f"**ステータス:** {startup['status']}") 
+                st.write(f"**企業概要:** {startup.get('overview', 'N/A')}")
                 
                 # 作成日・更新日
                 if startup.get('created_at'):
@@ -89,6 +119,8 @@ def display_startup_cards(filtered_startups, all_startups, tab_type):
                 with col_delete:
                     if st.button(f"削除", key=f"delete_{tab_type}_{i}"):
                         if st.session_state.get(f"confirm_delete_{tab_type}_{i}"):
+                            # 削除ログを保存
+                            save_activity_log("delete_startup", startup, {"company_name": startup["company_name"]})
                             all_startups.remove(startup)
                             save_data(all_startups)
                             st.rerun()
@@ -111,6 +143,7 @@ with st.sidebar.form("add_startup"):
     company_name = st.text_input("会社名")
     email = st.text_input("メールアドレス")
     status = st.selectbox("ステータス", ["初期接触", "商談中", "保留", "成約", "見送り"])
+    overview = st.text_area("概要")
     notes = st.text_area("メモ")
     
     if st.form_submit_button("追加"):
@@ -118,13 +151,14 @@ with st.sidebar.form("add_startup"):
             # ロゴを自動取得
             with st.spinner(f"{company_name}のロゴを取得中..."):
                 logo_url = fetch_company_logo(company_name)
-                Home page url = fetch_company_url(company_name)
+                hp_url = fetch_company_url(company_name)
             
             startup_data = {
                 "company_name": company_name,
-                "HP": Home page url,
+                "hp": hp_url,
                 "email": email,
                 "status": status,
+                "overview": overview,
                 "notes": notes,
                 "logo_url": logo_url,
                 "created_at": datetime.now().isoformat(),
@@ -133,6 +167,10 @@ with st.sidebar.form("add_startup"):
             
             add_startup(startups, startup_data)
             save_data(startups)
+            
+            # 統合ログに保存
+            save_activity_log("add_startup", startup_data, {"company_name": company_name})
+            
             st.sidebar.success(f"{company_name} を追加しました！")
             st.rerun()
 
@@ -143,22 +181,46 @@ if st.sidebar.checkbox("デバッグ情報を表示"):
     st.sidebar.write(f"現在のディレクトリ: `{os.getcwd()}`")
     st.sidebar.write(f"dataフォルダ存在: {os.path.exists('data')}")
     st.sidebar.write(f"startups.json存在: {os.path.exists('data/startups.json')}")
+    st.sidebar.write(f"activity_logs.json存在: {os.path.exists('data/activity_logs.json')}")
 
 # データのバックアップ・復元機能
 st.sidebar.markdown("---")
 st.sidebar.subheader("データ管理")
 
-if st.sidebar.button("データをダウンロード"):
-    if startups:
-        json_str = json.dumps(startups, ensure_ascii=False, indent=2)
-        st.sidebar.download_button(
-            label="startups.json をダウンロード",
-            data=json_str,
-            file_name="startups_backup.json",
-            mime="application/json"
-        )
-    else:
-        st.sidebar.warning("データがありません")
+# データダウンロード（統合版）
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    if st.button("データDL"):
+        if startups:
+            json_str = json.dumps(startups, ensure_ascii=False, indent=2)
+            st.sidebar.download_button(
+                label="startups.json",
+                data=json_str,
+                file_name="startups_backup.json",
+                mime="application/json",
+                key="download_data"
+            )
+        else:
+            st.sidebar.warning("データがありません")
+
+with col2:
+    if st.button("ログDL"):
+        try:
+            with open('data/activity_logs.json', 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+            if logs:
+                json_str = json.dumps(logs, ensure_ascii=False, indent=2)
+                st.sidebar.download_button(
+                    label="activity_logs.json",
+                    data=json_str,
+                    file_name="activity_logs_backup.json",
+                    mime="application/json",
+                    key="download_logs"
+                )
+            else:
+                st.sidebar.warning("ログがありません")
+        except FileNotFoundError:
+            st.sidebar.warning("ログファイルが見つかりません")
 
 uploaded_file = st.sidebar.file_uploader("データをアップロード", type=['json'])
 if uploaded_file is not None:
@@ -166,6 +228,8 @@ if uploaded_file is not None:
         uploaded_data = json.load(uploaded_file)
         if st.sidebar.button("データを復元"):
             save_data(uploaded_data)
+            # データ復元ログを保存
+            save_activity_log("restore_data", {"restored_count": len(uploaded_data)})
             st.sidebar.success("データを復元しました！")
             st.rerun()
     except Exception as e:
