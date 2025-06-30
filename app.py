@@ -119,11 +119,11 @@ with st.sidebar.form("add_startup"):
             # ロゴを自動取得
             with st.spinner(f"{company_name}のロゴを取得中..."):
                 logo_url = fetch_company_logo(company_name)
-                hp url = fetch_company_url(company_name)
+                hp_url = fetch_company_url(company_name)
             
             startup_data = {
                 "company_name": company_name,
-                "hp": Hp url,
+                "hp": Hp_url,
                 "email": email,
                 "status": status,
                 "notes": notes,
