@@ -185,12 +185,7 @@ if startups:
         st.metric("総スタートアップ数", len(startups))
     with col2:
         st.metric("アクティブ案件", len(active_startups))
-    with col3:
-        st.metric("成約数", success_count)
-    with col4:
-        success_rate = f"{(success_count/len(startups)*100):.1f}%" if startups else "0%"
-        st.metric("成約率", success_rate)
-
+  
     # タブの作成
     tab1, tab2, tab3 = st.tabs(["📋 全スタートアップ", "🔥 アクティブ案件", "📈 完了案件"])
     
