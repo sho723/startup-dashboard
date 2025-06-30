@@ -112,6 +112,7 @@ with st.sidebar.form("add_startup"):
     company_name = st.text_input("会社名")
     email = st.text_input("メールアドレス")
     status = st.selectbox("ステータス", ["初期接触", "商談中", "保留", "成約", "見送り"])
+    overview = st.text_area("概要")
     notes = st.text_area("メモ")
     
     if st.form_submit_button("追加"):
@@ -126,6 +127,7 @@ with st.sidebar.form("add_startup"):
                 "hp": hp_url,
                 "email": email,
                 "status": status,
+                "overview"=overview,
                 "notes": notes,
                 "logo_url": logo_url,
                 "created_at": datetime.now().isoformat(),
