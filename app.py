@@ -123,7 +123,7 @@ with st.sidebar.form("add_startup"):
             
             startup_data = {
                 "company_name": company_name,
-                "hp": Hp_url,
+                "hp": hp_url,
                 "email": email,
                 "status": status,
                 "notes": notes,
