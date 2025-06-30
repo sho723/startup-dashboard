@@ -69,9 +69,10 @@ def display_startup_cards(filtered_startups, all_startups, tab_type):
                 else:
                     st.write("🏢 ロゴ未取得")
                 
-                st.write(f"**HP:** {startup.get('HP', 'N/A')}")
+                st.write(f"**HP:** {startup.get('hp', 'N/A')}")
                 st.write(f"**メール:** {startup.get('email', 'N/A')}")
-                st.write(f"**ステータス:** {startup['status']}")
+                st.write(f"**ステータス:** {startup['status']}") 
+                st.write(f"**企業概要:** {startup.get('overview', 'N/A')}")
                 
                 # 作成日・更新日
                 if startup.get('created_at'):
