@@ -206,4 +206,163 @@ with col1:
 with col2:
     if st.button("ログDL"):
         try:
-            with open('data/activity_logs.json', 'r', encoding='
+            with open('data/activity_logs.json', 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+            if logs:
+                json_str = json.dumps(logs, ensure_ascii=False, indent=2)
+                st.sidebar.download_button(
+                    label="activity_logs.json",
+                    data=json_str,
+                    file_name="activity_logs_backup.json",
+                    mime="application/json",
+                    key="download_logs"
+                )
+            else:
+                st.sidebar.warning("ログがありません")
+        except FileNotFoundError:
+            st.sidebar.warning("ログファイルが見つかりません")
+
+uploaded_file = st.sidebar.file_uploader("データをアップロード", type=['json'])
+if uploaded_file is not None:
+    try:
+        uploaded_data = json.load(uploaded_file)
+        if st.sidebar.button("データを復元"):
+            save_data(uploaded_data)
+            # データ復元ログを保存
+            save_activity_log("restore_data", {"restored_count": len(uploaded_data)})
+            st.sidebar.success("データを復元しました！")
+            st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"ファイル読み込みエラー: {e}")
+
+# メインエリア - タブ機能
+if startups:
+    # 統計情報（全体）
+    st.subheader("📊 統計情報")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    # アクティブ案件の定義（保留を含む）
+    active_startups = [s for s in startups if s["status"] in ["初期接触", "商談中", "保留"]]
+    success_count = len([s for s in startups if s["status"] == "成約"])
+    
+    with col1:
+        st.metric("総スタートアップ数", len(startups))
+    with col2:
+        st.metric("アクティブ案件", len(active_startups))
+  
+    # タブの作成
+    tab1, tab2, tab3 = st.tabs(["📋 全スタートアップ", "🔥 アクティブ案件", "📈 完了案件"])
+    
+    # タブ1: 全スタートアップ
+    with tab1:
+        st.subheader("💼 全スタートアップ一覧")
+        
+        # フィルター
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            status_filter = st.selectbox("ステータスでフィルター", 
+                                       ["全て"] + list(set([s["status"] for s in startups])),
+                                       key="all_status_filter")
+        with col2:
+            search_term = st.text_input("会社名で検索", key="all_search")
+
+        # フィルタリング
+        filtered_startups = startups
+        if status_filter != "全て":
+            filtered_startups = [s for s in filtered_startups if s["status"] == status_filter]
+        if search_term:
+            filtered_startups = [s for s in filtered_startups if search_term.lower() in s["company_name"].lower()]
+
+        display_startup_cards(filtered_startups, startups, "all")
+    
+    # タブ2: アクティブ案件のみ
+    with tab2:
+        st.subheader("🔥 アクティブ案件（進行中）")
+        
+        if active_startups:
+            # アクティブ案件の詳細統計
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                initial_count = len([s for s in active_startups if s["status"] == "初期接触"])
+                st.metric("初期接触", initial_count)
+            with col2:
+                negotiation_count = len([s for s in active_startups if s["status"] == "商談中"])
+                st.metric("商談中", negotiation_count)
+            with col3:
+                hold_count = len([s for s in active_startups if s["status"] == "保留"])
+                st.metric("保留", hold_count)
+            with col4:
+                avg_days = calculate_avg_days_since_creation(active_startups)
+                st.metric("平均経過日数", f"{avg_days}日")
+            
+            # アクティブ案件用フィルター
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                active_status_filter = st.selectbox("アクティブステータス", 
+                                                  ["全て", "初期接触", "商談中", "保留"],
+                                                  key="active_status_filter")
+            with col2:
+                active_search_term = st.text_input("会社名で検索", key="active_search")
+
+            # アクティブ案件のフィルタリング
+            filtered_active = active_startups
+            if active_status_filter != "全て":
+                filtered_active = [s for s in filtered_active if s["status"] == active_status_filter]
+            if active_search_term:
+                filtered_active = [s for s in filtered_active if active_search_term.lower() in s["company_name"].lower()]
+
+            # 優先度順でソート（商談中 > 初期接触 > 保留）
+            priority_order = {"商談中": 1, "初期接触": 2, "保留": 3}
+            filtered_active.sort(key=lambda x: priority_order.get(x["status"], 4))
+            
+            st.info(f"📊 アクティブ案件 {len(filtered_active)} 件を表示中（優先度順）")
+            
+            display_startup_cards(filtered_active, startups, "active")
+        else:
+            st.info("現在アクティブな案件はありません。")
+    
+    # タブ3: 完了案件
+    with tab3:
+        st.subheader("📈 完了案件")
+        
+        completed_startups = [s for s in startups if s["status"] in ["成約", "見送り"]]
+        
+        if completed_startups:
+            # 完了案件の統計
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                success_count = len([s for s in completed_startups if s["status"] == "成約"])
+                st.metric("成約", success_count)
+            with col2:
+                rejected_count = len([s for s in completed_startups if s["status"] == "見送り"])
+                st.metric("見送り", rejected_count)
+            with col3:
+                completion_rate = f"{(success_count/len(completed_startups)*100):.1f}%" if completed_startups else "0%"
+                st.metric("成約率", completion_rate)
+            
+            # 完了案件用フィルター
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                completed_status_filter = st.selectbox("完了ステータス", 
+                                                     ["全て", "成約", "見送り"],
+                                                     key="completed_status_filter")
+            with col2:
+                completed_search_term = st.text_input("会社名で検索", key="completed_search")
+
+            # 完了案件のフィルタリング
+            filtered_completed = completed_startups
+            if completed_status_filter != "全て":
+                filtered_completed = [s for s in filtered_completed if s["status"] == completed_status_filter]
+            if completed_search_term:
+                filtered_completed = [s for s in filtered_completed if completed_search_term.lower() in s["company_name"].lower()]
+
+            display_startup_cards(filtered_completed, startups, "completed")
+        else:
+            st.info("完了した案件はありません。")
+
+else:
+    st.info("まだスタートアップが登録されていません。サイドバーから追加してください。")
+
+# フッター
+st.markdown("---")
+st.markdown("Made with using Streamlit")
