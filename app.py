@@ -68,7 +68,7 @@ def display_startup_cards(filtered_startups, all_startups, tab_type):
                 else:
                     st.write("🏢 ロゴ未取得")
                 
-                st.write(f"**担当者:** {startup.get('contact_person', 'N/A')}")
+                st.write(f"**HP:** {startup.get('HP', 'N/A')}")
                 st.write(f"**メール:** {startup.get('email', 'N/A')}")
                 st.write(f"**ステータス:** {startup['status']}")
                 
@@ -109,7 +109,6 @@ st.sidebar.header("新しいスタートアップを追加")
 
 with st.sidebar.form("add_startup"):
     company_name = st.text_input("会社名")
-    contact_person = st.text_input("担当者名")
     email = st.text_input("メールアドレス")
     status = st.selectbox("ステータス", ["初期接触", "商談中", "保留", "成約", "見送り"])
     notes = st.text_area("メモ")
@@ -119,10 +118,11 @@ with st.sidebar.form("add_startup"):
             # ロゴを自動取得
             with st.spinner(f"{company_name}のロゴを取得中..."):
                 logo_url = fetch_company_logo(company_name)
+                Home page url = fetch_company_url(company_name)
             
             startup_data = {
                 "company_name": company_name,
-                "contact_person": contact_person,
+                "HP": Home page url,
                 "email": email,
                 "status": status,
                 "notes": notes,
@@ -185,12 +185,7 @@ if startups:
         st.metric("総スタートアップ数", len(startups))
     with col2:
         st.metric("アクティブ案件", len(active_startups))
-    with col3:
-        st.metric("成約数", success_count)
-    with col4:
-        success_rate = f"{(success_count/len(startups)*100):.1f}%" if startups else "0%"
-        st.metric("成約率", success_rate)
-
+  
     # タブの作成
     tab1, tab2, tab3 = st.tabs(["📋 全スタートアップ", "🔥 アクティブ案件", "📈 完了案件"])
     
