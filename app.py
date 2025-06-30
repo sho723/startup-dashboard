@@ -13,6 +13,32 @@ st.set_page_config(
     layout="wide"
 )
 
+# ログ管理関数を追加
+def save_add_log(startup_data):
+    """新規項目追加ログを保存"""
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "action": "add_startup",
+        "company_name": startup_data["company_name"],
+        "data": startup_data
+    }
+    
+    # ログファイルの読み込み（存在しない場合は空リスト）
+    try:
+        with open('data/add_logs.json', 'r', encoding='utf-8') as f:
+            logs = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        logs = []
+    
+    # 新しいログエントリを追加
+    logs.append(log_entry)
+    
+    # ログファイルに保存
+    import os
+    os.makedirs('data', exist_ok=True)
+    with open('data/add_logs.json', 'w', encoding='utf-8') as f:
+        json.dump(logs, f, ensure_ascii=False, indent=2)
+
 # 関数定義（先頭に移動）
 def calculate_days_since_creation(startup):
     """作成日からの経過日数を計算"""
@@ -137,6 +163,10 @@ with st.sidebar.form("add_startup"):
             
             add_startup(startups, startup_data)
             save_data(startups)
+            
+            # ログ保存を追加
+            save_add_log(startup_data)
+            
             st.sidebar.success(f"{company_name} を追加しました！")
             st.rerun()
 
@@ -147,6 +177,7 @@ if st.sidebar.checkbox("デバッグ情報を表示"):
     st.sidebar.write(f"現在のディレクトリ: `{os.getcwd()}`")
     st.sidebar.write(f"dataフォルダ存在: {os.path.exists('data')}")
     st.sidebar.write(f"startups.json存在: {os.path.exists('data/startups.json')}")
+    st.sidebar.write(f"add_logs.json存在: {os.path.exists('data/add_logs.json')}")
 
 # データのバックアップ・復元機能
 st.sidebar.markdown("---")
@@ -163,6 +194,24 @@ if st.sidebar.button("データをダウンロード"):
         )
     else:
         st.sidebar.warning("データがありません")
+
+# 追加ログのダウンロード機能を追加
+if st.sidebar.button("追加ログをダウンロード"):
+    try:
+        with open('data/add_logs.json', 'r', encoding='utf-8') as f:
+            logs = json.load(f)
+        if logs:
+            json_str = json.dumps(logs, ensure_ascii=False, indent=2)
+            st.sidebar.download_button(
+                label="add_logs.json をダウンロード",
+                data=json_str,
+                file_name="add_logs_backup.json",
+                mime="application/json"
+            )
+        else:
+            st.sidebar.warning("追加ログがありません")
+    except FileNotFoundError:
+        st.sidebar.warning("追加ログファイルが見つかりません")
 
 uploaded_file = st.sidebar.file_uploader("データをアップロード", type=['json'])
 if uploaded_file is not None:
