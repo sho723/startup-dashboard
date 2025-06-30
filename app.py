@@ -3,7 +3,7 @@ import pandas as pd
 import json
 from datetime import datetime
 from utils.logo_fetcher import fetch_company_logo
-from utils.URL_fetcher import fetch_company_url
+from utils.url_fetcher import fetch_company_url
 from utils.data_manager import load_data, save_data, add_startup
 
 # ページ設定
