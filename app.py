@@ -127,7 +127,7 @@ with st.sidebar.form("add_startup"):
                 "hp": hp_url,
                 "email": email,
                 "status": status,
-                "overview"=overview,
+                "overview":=overview,
                 "notes": notes,
                 "logo_url": logo_url,
                 "created_at": datetime.now().isoformat(),
